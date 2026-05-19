@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const statements = [
   `CREATE TABLE IF NOT EXISTS roles (
@@ -7,7 +7,7 @@ const statements = [
     code VARCHAR(50) NOT NULL UNIQUE,
     description TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME NULL
   )`,
   `CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -19,7 +19,7 @@ const statements = [
     status ENUM('active', 'inactive', 'blocked') DEFAULT 'active',
     last_login_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
     CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT ON UPDATE CASCADE
   )`,
   `CREATE TABLE IF NOT EXISTS suppliers (
@@ -32,7 +32,7 @@ const statements = [
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
     CONSTRAINT fk_suppliers_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
   )`,
   `CREATE TABLE IF NOT EXISTS item_categories (
@@ -41,7 +41,7 @@ const statements = [
     description TEXT NULL,
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME NULL
   )`,
   `CREATE TABLE IF NOT EXISTS items (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -58,7 +58,7 @@ const statements = [
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
     CONSTRAINT fk_items_category FOREIGN KEY (category_id) REFERENCES item_categories(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_items_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_items_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
@@ -69,7 +69,7 @@ const statements = [
     supplier_id BIGINT UNSIGNED NULL,
     quantity DECIMAL(12,2) NOT NULL,
     unit_cost DECIMAL(12,2) DEFAULT 0.00,
-    total_cost DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_cost) STORED,
+    total_cost DECIMAL(12,2) DEFAULT 0.00,
     entry_date DATE NOT NULL,
     notes TEXT NULL,
     created_by BIGINT UNSIGNED NULL,
@@ -109,7 +109,7 @@ const statements = [
     created_by BIGINT UNSIGNED NULL,
     approved_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
     CONSTRAINT fk_purchase_orders_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_purchase_orders_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_purchase_orders_approved_by FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
@@ -121,7 +121,7 @@ const statements = [
     ordered_quantity DECIMAL(12,2) NOT NULL,
     received_quantity DECIMAL(12,2) DEFAULT 0.00,
     unit_cost DECIMAL(12,2) DEFAULT 0.00,
-    total_cost DECIMAL(12,2) GENERATED ALWAYS AS (ordered_quantity * unit_cost) STORED,
+    total_cost DECIMAL(12,2) DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_purchase_order_items_order FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_purchase_order_items_item FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT ON UPDATE CASCADE
@@ -139,7 +139,7 @@ const statements = [
     created_by BIGINT UNSIGNED NULL,
     updated_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
     CONSTRAINT fk_drivers_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_drivers_updated_by FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
   )`,
@@ -165,7 +165,7 @@ const statements = [
     completed_at DATETIME NULL,
     paid_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
     CONSTRAINT fk_stock_requests_driver FOREIGN KEY (driver_id) REFERENCES drivers(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_stock_requests_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_stock_requests_approved_by FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -178,7 +178,7 @@ const statements = [
     item_id BIGINT UNSIGNED NOT NULL,
     quantity DECIMAL(12,2) NOT NULL,
     unit_price DECIMAL(12,2) NOT NULL,
-    total_price DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    total_price DECIMAL(12,2) DEFAULT 0.00,
     notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_stock_request_items_request FOREIGN KEY (stock_request_id) REFERENCES stock_requests(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -205,8 +205,8 @@ const statements = [
     action VARCHAR(150) NOT NULL,
     module VARCHAR(100) NOT NULL,
     record_id BIGINT UNSIGNED NULL,
-    old_data JSON NULL,
-    new_data JSON NULL,
+    old_data LONGTEXT NULL,
+    new_data LONGTEXT NULL,
     ip_address VARCHAR(100) NULL,
     user_agent TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

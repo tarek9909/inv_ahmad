@@ -1,5 +1,5 @@
 const { fn, col } = require('sequelize');
-const { Driver, StockRequest, Payment } = require('../models');
+const { Driver, DriverUserLink, StockRequest, Payment } = require('../models');
 const { list, findOrFail } = require('../services/crudService');
 const stockRequestService = require('../services/stockRequestService');
 const paymentService = require('../services/paymentService');
@@ -9,20 +9,28 @@ const { ok, created } = require('../utils/responses');
 const HttpError = require('../utils/httpError');
 
 exports.listDrivers = asyncHandler(async (req, res) => {
-  const { rows, meta } = await list(Driver, req.query, { searchFields: ['full_name', 'phone', 'id_number', 'vehicle_plate_number'] });
+  const { rows, meta } = await list(Driver, req.query, { include: [{ model: DriverUserLink, as: 'user_link' }], searchFields: ['full_name', 'phone', 'id_number', 'vehicle_plate_number'] });
+  rows.forEach((driver) => driver.setDataValue('user_id', driver.user_link?.user_id || null));
   ok(res, 'Drivers loaded', rows, meta);
 });
 
 exports.createDriver = asyncHandler(async (req, res) => {
-  const driver = await Driver.create({ ...req.body, created_by: req.user.id });
+  const { user_id, ...payload } = req.body;
+  const driver = await Driver.create({ ...payload, created_by: req.user.id });
+  if (user_id) await DriverUserLink.create({ driver_id: driver.id, user_id });
   await logAction({ req, action: 'create', module: 'drivers', recordId: driver.id, newData: driver.toJSON() });
+  driver.setDataValue('user_id', user_id || null);
   created(res, 'Driver created', driver);
 });
 
 exports.updateDriver = asyncHandler(async (req, res) => {
   const driver = await findOrFail(Driver, req.params.id, { name: 'Driver' });
+  const { user_id, ...payload } = req.body;
   const oldData = driver.toJSON();
-  await driver.update({ ...req.body, updated_by: req.user.id });
+  await driver.update({ ...payload, updated_by: req.user.id });
+  await DriverUserLink.destroy({ where: { driver_id: driver.id } });
+  if (user_id) await DriverUserLink.create({ driver_id: driver.id, user_id });
+  driver.setDataValue('user_id', user_id || null);
   await logAction({ req, action: 'update', module: 'drivers', recordId: driver.id, oldData, newData: driver.toJSON() });
   ok(res, 'Driver updated', driver);
 });
@@ -69,9 +77,19 @@ exports.completeStockRequest = asyncHandler(async (req, res) => {
   ok(res, 'Stock request completed', request);
 });
 
+exports.acceptStockRequest = asyncHandler(async (req, res) => {
+  const request = await stockRequestService.acceptStockRequest(req.params.id, req);
+  ok(res, 'Stock request accepted', request);
+});
+
 exports.cancelStockRequest = asyncHandler(async (req, res) => {
   const request = await stockRequestService.cancelStockRequest(req.params.id, req);
   ok(res, 'Stock request cancelled', request);
+});
+
+exports.printStockRequest = asyncHandler(async (req, res) => {
+  const result = await stockRequestService.recordStockRequestPrint(req.params.id, req.body || {}, req);
+  ok(res, 'Stock request print recorded', result);
 });
 
 exports.listPayments = asyncHandler(async (req, res) => {

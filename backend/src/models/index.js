@@ -31,6 +31,31 @@ const User = sequelize.define('users', {
   scopes: { withPassword: { attributes: {} } }
 });
 
+const Permission = sequelize.define('permissions', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  permission_key: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+  module: { type: DataTypes.STRING(100), allowNull: false },
+  feature: { type: DataTypes.STRING(100), allowNull: false },
+  description: DataTypes.TEXT,
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'permissions', timestamps: false });
+
+const RolePermission = sequelize.define('role_permissions', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  role_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+  permission_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'role_permissions', timestamps: false });
+
+const Setting = sequelize.define('settings', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  setting_key: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+  setting_value: DataTypes.TEXT('long'),
+  value_type: { type: DataTypes.STRING(50), defaultValue: 'string' },
+  updated_by: DataTypes.BIGINT.UNSIGNED,
+  ...commonTimestamps
+}, { tableName: 'settings', timestamps: false });
+
 const Supplier = sequelize.define('suppliers', {
   id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING(150), allowNull: false },
@@ -142,6 +167,13 @@ const Driver = sequelize.define('drivers', {
   ...commonTimestamps
 }, { tableName: 'drivers', timestamps: false });
 
+const DriverUserLink = sequelize.define('driver_user_links', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  driver_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+  user_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'driver_user_links', timestamps: false });
+
 const StockRequest = sequelize.define('stock_requests', {
   id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
   request_number: { type: DataTypes.STRING(100), allowNull: false, unique: true },
@@ -190,14 +222,39 @@ const Payment = sequelize.define('payments', {
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { tableName: 'payments', timestamps: false });
 
+const StockRequestPrint = sequelize.define('stock_request_prints', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  stock_request_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+  printed_by: DataTypes.BIGINT.UNSIGNED,
+  printer_name: DataTypes.STRING(255),
+  qz_version: DataTypes.STRING(100),
+  status: { type: DataTypes.ENUM('success', 'failed'), allowNull: false },
+  error_message: DataTypes.TEXT,
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'stock_request_prints', timestamps: false });
+
 const AuditLog = sequelize.define('audit_logs', {
   id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
   user_id: DataTypes.BIGINT.UNSIGNED,
   action: { type: DataTypes.STRING(150), allowNull: false },
   module: { type: DataTypes.STRING(100), allowNull: false },
   record_id: DataTypes.BIGINT.UNSIGNED,
-  old_data: DataTypes.JSON,
-  new_data: DataTypes.JSON,
+  old_data: {
+    type: DataTypes.TEXT('long'),
+    get() {
+      const value = this.getDataValue('old_data');
+      if (!value) return null;
+      try { return JSON.parse(value); } catch { return value; }
+    }
+  },
+  new_data: {
+    type: DataTypes.TEXT('long'),
+    get() {
+      const value = this.getDataValue('new_data');
+      if (!value) return null;
+      try { return JSON.parse(value); } catch { return value; }
+    }
+  },
   ip_address: DataTypes.STRING(100),
   user_agent: DataTypes.TEXT,
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
@@ -205,6 +262,12 @@ const AuditLog = sequelize.define('audit_logs', {
 
 Role.hasMany(User, { foreignKey: 'role_id', as: 'users' });
 User.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
+Role.belongsToMany(Permission, { through: RolePermission, foreignKey: 'role_id', otherKey: 'permission_id', as: 'permissions' });
+Permission.belongsToMany(Role, { through: RolePermission, foreignKey: 'permission_id', otherKey: 'role_id', as: 'roles' });
+Role.hasMany(RolePermission, { foreignKey: 'role_id', as: 'role_permissions' });
+Permission.hasMany(RolePermission, { foreignKey: 'permission_id', as: 'role_permissions' });
+RolePermission.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
+RolePermission.belongsTo(Permission, { foreignKey: 'permission_id', as: 'permission' });
 
 Supplier.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 ItemCategory.hasMany(Item, { foreignKey: 'category_id', as: 'items' });
@@ -228,6 +291,10 @@ PurchaseOrderItem.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
 
 Driver.hasMany(StockRequest, { foreignKey: 'driver_id', as: 'stock_requests' });
 StockRequest.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
+Driver.hasOne(DriverUserLink, { foreignKey: 'driver_id', as: 'user_link' });
+DriverUserLink.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
+DriverUserLink.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+User.hasOne(DriverUserLink, { foreignKey: 'user_id', as: 'driver_link' });
 StockRequest.hasMany(StockRequestItem, { foreignKey: 'stock_request_id', as: 'items' });
 StockRequestItem.belongsTo(StockRequest, { foreignKey: 'stock_request_id', as: 'stock_request' });
 StockRequestItem.belongsTo(Item, { foreignKey: 'item_id', as: 'item' });
@@ -237,12 +304,19 @@ Payment.belongsTo(StockRequest, { foreignKey: 'stock_request_id', as: 'stock_req
 Driver.hasMany(Payment, { foreignKey: 'driver_id', as: 'payments' });
 Payment.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver' });
 
+StockRequest.hasMany(StockRequestPrint, { foreignKey: 'stock_request_id', as: 'prints' });
+StockRequestPrint.belongsTo(StockRequest, { foreignKey: 'stock_request_id', as: 'stock_request' });
+StockRequestPrint.belongsTo(User, { foreignKey: 'printed_by', as: 'printer' });
+
 AuditLog.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 module.exports = {
   sequelize,
   Role,
   User,
+  Permission,
+  RolePermission,
+  Setting,
   Supplier,
   ItemCategory,
   Item,
@@ -251,8 +325,10 @@ module.exports = {
   PurchaseOrder,
   PurchaseOrderItem,
   Driver,
+  DriverUserLink,
   StockRequest,
   StockRequestItem,
   Payment,
+  StockRequestPrint,
   AuditLog
 };

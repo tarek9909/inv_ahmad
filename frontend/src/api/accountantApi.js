@@ -12,8 +12,10 @@ export const createAccountantApi = (client) => ({
     get: (id) => client.get(`/stock-requests/${id}`),
     create: (payload) => client.post('/stock-requests', payload),
     update: (id, payload) => client.patch(`/stock-requests/${id}`, payload),
+    accept: (id) => client.post(`/stock-requests/${id}/accept`),
     complete: (id) => client.post(`/stock-requests/${id}/complete`),
-    cancel: (id) => client.post(`/stock-requests/${id}/cancel`)
+    cancel: (id) => client.post(`/stock-requests/${id}/cancel`),
+    print: (id, payload) => client.post(`/stock-requests/${id}/print`, payload)
   },
   payments: {
     list: (params) => client.get('/payments', params),

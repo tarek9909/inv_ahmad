@@ -39,6 +39,22 @@ const userCreate = Joi.object({
 const userUpdate = userCreate.fork(['role_id', 'full_name', 'email', 'password'], (field) => field.optional());
 const userStatus = Joi.object({ status: status('active', 'inactive', 'blocked').required() });
 
+const roleCreate = Joi.object({
+  name: Joi.string().max(100).required(),
+  code: Joi.string().max(50).pattern(/^[a-z][a-z0-9_]*$/).required(),
+  description: Joi.string().allow(null, '')
+});
+
+const roleUpdate = Joi.object({
+  name: Joi.string().max(100),
+  code: Joi.string().max(50).pattern(/^[a-z][a-z0-9_]*$/),
+  description: Joi.string().allow(null, '')
+}).min(1);
+
+const rolePermissionsUpdate = Joi.object({
+  permissions: Joi.array().items(Joi.string().max(120)).required()
+});
+
 const category = Joi.object({
   name: Joi.string().max(150).required(),
   description: Joi.string().allow(null, ''),
@@ -118,6 +134,7 @@ const receivePurchaseOrder = Joi.object({
 });
 
 const driverCreate = Joi.object({
+  user_id: id.allow(null),
   full_name: Joi.string().max(150).required(),
   phone: Joi.string().max(50).allow(null, ''),
   address: Joi.string().allow(null, ''),
@@ -147,7 +164,7 @@ const stockRequestCreate = Joi.object({
 
 const stockRequestUpdate = Joi.object({
   notes: Joi.string().allow(null, ''),
-  request_status: status('draft', 'pending', 'approved')
+  request_status: status('draft', 'pending')
 });
 
 const paymentCreate = Joi.object({
@@ -166,6 +183,9 @@ module.exports = {
   userCreate,
   userUpdate,
   userStatus,
+  roleCreate,
+  roleUpdate,
+  rolePermissionsUpdate,
   category,
   categoryUpdate,
   supplier,

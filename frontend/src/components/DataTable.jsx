@@ -126,9 +126,9 @@ export function ActionButton({ icon: Icon, label, onClick, color = 'var(--text-s
     <button
       onClick={onClick}
       title={label}
-      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color, padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color, padding: '8px', minWidth: '36px', minHeight: '36px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
-      <Icon size={14} />
+      <Icon size={20} />
     </button>
   );
 }

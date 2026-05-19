@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS stock_driver_system
+﻿CREATE DATABASE IF NOT EXISTS stock_driver_system
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
@@ -29,7 +29,7 @@ CREATE TABLE roles (
     code VARCHAR(50) NOT NULL UNIQUE,
     description TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME NULL
 );
 
 CREATE TABLE users (
@@ -42,7 +42,7 @@ CREATE TABLE users (
     status ENUM('active', 'inactive', 'blocked') DEFAULT 'active',
     last_login_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
 
     CONSTRAINT fk_users_role
         FOREIGN KEY (role_id) REFERENCES roles(id)
@@ -60,7 +60,7 @@ CREATE TABLE suppliers (
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
 
     CONSTRAINT fk_suppliers_created_by
         FOREIGN KEY (created_by) REFERENCES users(id)
@@ -74,7 +74,7 @@ CREATE TABLE item_categories (
     description TEXT NULL,
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME NULL
 );
 
 CREATE TABLE items (
@@ -92,7 +92,7 @@ CREATE TABLE items (
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
 
     CONSTRAINT fk_items_category
         FOREIGN KEY (category_id) REFERENCES item_categories(id)
@@ -116,7 +116,7 @@ CREATE TABLE stock_entries (
     supplier_id BIGINT UNSIGNED NULL,
     quantity DECIMAL(12,2) NOT NULL,
     unit_cost DECIMAL(12,2) DEFAULT 0.00,
-    total_cost DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_cost) STORED,
+    total_cost DECIMAL(12,2) DEFAULT 0.00,
     entry_date DATE NOT NULL,
     notes TEXT NULL,
     created_by BIGINT UNSIGNED NULL,
@@ -187,7 +187,7 @@ CREATE TABLE purchase_orders (
     created_by BIGINT UNSIGNED NULL,
     approved_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
 
     CONSTRAINT fk_purchase_orders_supplier
         FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
@@ -212,7 +212,7 @@ CREATE TABLE purchase_order_items (
     ordered_quantity DECIMAL(12,2) NOT NULL,
     received_quantity DECIMAL(12,2) DEFAULT 0.00,
     unit_cost DECIMAL(12,2) DEFAULT 0.00,
-    total_cost DECIMAL(12,2) GENERATED ALWAYS AS (ordered_quantity * unit_cost) STORED,
+    total_cost DECIMAL(12,2) DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_purchase_order_items_order
@@ -239,7 +239,7 @@ CREATE TABLE drivers (
     created_by BIGINT UNSIGNED NULL,
     updated_by BIGINT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
 
     CONSTRAINT fk_drivers_created_by
         FOREIGN KEY (created_by) REFERENCES users(id)
@@ -274,7 +274,7 @@ CREATE TABLE stock_requests (
     completed_at DATETIME NULL,
     paid_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
 
     CONSTRAINT fk_stock_requests_driver
         FOREIGN KEY (driver_id) REFERENCES drivers(id)
@@ -308,7 +308,7 @@ CREATE TABLE stock_request_items (
     item_id BIGINT UNSIGNED NOT NULL,
     quantity DECIMAL(12,2) NOT NULL,
     unit_price DECIMAL(12,2) NOT NULL,
-    total_price DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    total_price DECIMAL(12,2) DEFAULT 0.00,
     notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -357,8 +357,8 @@ CREATE TABLE audit_logs (
     action VARCHAR(150) NOT NULL,
     module VARCHAR(100) NOT NULL,
     record_id BIGINT UNSIGNED NULL,
-    old_data JSON NULL,
-    new_data JSON NULL,
+    old_data LONGTEXT NULL,
+    new_data LONGTEXT NULL,
     ip_address VARCHAR(100) NULL,
     user_agent TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

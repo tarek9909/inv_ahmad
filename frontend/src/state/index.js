@@ -5,3 +5,5 @@ export * from './adminStores.js';
 export * from './inventoryStores.js';
 export * from './accountantStores.js';
 export * from './reportStore.js';
+export * from './settingsStore.js';
+export * from './driverStore.js';

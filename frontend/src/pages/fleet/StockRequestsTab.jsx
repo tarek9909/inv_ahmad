@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, CheckCircle, XCircle, Eye, Edit } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Eye, Edit, Printer } from 'lucide-react';
 import DataTable, { ActionButton, StatusBadge } from '../../components/DataTable.jsx';
 import Modal, { ConfirmModal } from '../../components/Modal.jsx';
 import FormField, { FormInput, FormSelect, FormTextarea, SubmitButton } from '../../components/FormField.jsx';
 import { toast } from '../../components/Toast.jsx';
-import { accountantStores, inventoryStores } from '../../state/index.js';
+import { accountantStores, inventoryStores, authStore, settingsStore } from '../../state/index.js';
 import { useStore } from '../../hooks/useStore.js';
 import { createStockRequestDraft, calculateStockRequestTotals, REQUEST_TYPES } from '../../domain/index.js';
+import { qzPrintService } from '../../services/qzPrintService.js';
 
 const columns = [
   { key: 'request_number', label: 'Request #', nowrap: true },
@@ -18,12 +19,14 @@ const columns = [
   { key: 'remaining_amount', label: 'Remaining', render: (row) => `$${Number(row.remaining_amount || 0).toFixed(2)}` }
 ];
 
-const editableStatuses = ['draft', 'pending', 'approved'];
+const editableStatuses = ['draft', 'pending'];
 
 export default function StockRequestsTab() {
   const { rows, meta, loading, error } = useStore(accountantStores.stockRequests);
   const driverState = useStore(accountantStores.drivers);
   const itemState = useStore(inventoryStores.items);
+  const { user } = useStore(authStore);
+  const { settings } = useStore(settingsStore);
 
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState(createStockRequestDraft());
@@ -33,12 +36,21 @@ export default function StockRequestsTab() {
   const [editModal, setEditModal] = useState(null);
   const [editForm, setEditForm] = useState({ notes: '', request_status: 'pending' });
   const [editSaving, setEditSaving] = useState(false);
+  const [printModal, setPrintModal] = useState(null);
+  const [printing, setPrinting] = useState(false);
+  const [printerName, setPrinterName] = useState('');
+  const [printStatus, setPrintStatus] = useState('');
 
   useEffect(() => {
     accountantStores.stockRequests.load();
     accountantStores.drivers.load();
     inventoryStores.items.load();
+    settingsStore.load().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setPrinterName(settings.qz_default_printer || '');
+  }, [settings.qz_default_printer]);
 
   const openCreate = () => {
     setDraft(createStockRequestDraft());
@@ -90,6 +102,9 @@ export default function StockRequestsTab() {
       if (confirmAction.type === 'complete') {
         await accountantStores.stockRequests.complete(confirmAction.row.id);
         toast.success('Request completed');
+      } else if (confirmAction.type === 'accept') {
+        await accountantStores.stockRequests.accept(confirmAction.row.id);
+        toast.success('Request accepted');
       } else {
         await accountantStores.stockRequests.cancel(confirmAction.row.id);
         toast.success('Request cancelled');
@@ -115,6 +130,16 @@ export default function StockRequestsTab() {
     setEditForm({ notes: row.notes || '', request_status: row.request_status || 'pending' });
   };
 
+  const openPrint = async (row) => {
+    try {
+      const result = await accountantStores.stockRequests.loadOne(row.id);
+      setPrintModal(result.data || row);
+      setPrintStatus('');
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load printable order');
+    }
+  };
+
   const handleEdit = async (event) => {
     event.preventDefault();
     setEditSaving(true);
@@ -133,7 +158,30 @@ export default function StockRequestsTab() {
   const driverOptions = (driverState.rows || []).filter((d) => d.status === 'active').map((d) => ({ value: d.id, label: d.full_name }));
   const itemOptions = (itemState.rows || []).filter((i) => i.status !== 'inactive').map((i) => ({ value: i.id, label: `${i.name} (${i.sku || 'no SKU'})` }));
 
-  const canCompleteOrCancel = (row) => !['completed', 'cancelled'].includes(row.request_status);
+  const can = (permission) => user?.role?.code === 'admin' || (user?.permissions || []).includes(permission);
+  const canComplete = (row) => row.request_status === 'approved';
+  const canCancel = (row) => !['completed', 'cancelled'].includes(row.request_status);
+  const canAccept = (row) => ['draft', 'pending'].includes(row.request_status);
+  const printEnabled = ['print', 'both'].includes(settings.accepted_request_fulfillment_mode || 'both') && settings.qz_tray_enabled !== 'false';
+  const canPrint = (row) => printEnabled && ['approved', 'completed'].includes(row.request_status);
+
+  const handlePrint = async () => {
+    if (!printModal) return;
+    setPrinting(true);
+    setPrintStatus('Connecting to QZ Tray...');
+    try {
+      const result = await qzPrintService.printRequest({ request: printModal, printerName });
+      await accountantStores.stockRequests.print(printModal.id, { printer_name: result.printer, qz_version: result.qzVersion, status: 'success' });
+      setPrintStatus(`Printed on ${result.printer}`);
+      toast.success('Order printed');
+    } catch (err) {
+      await accountantStores.stockRequests.print(printModal.id, { printer_name: printerName, status: 'failed', error_message: err?.message || 'Print failed' }).catch(() => {});
+      setPrintStatus(err?.message || 'Print failed');
+      toast.error(err?.message || 'Print failed');
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   return (
     <>
@@ -145,16 +193,18 @@ export default function StockRequestsTab() {
         error={error}
         onLoad={(filters) => accountantStores.stockRequests.load(filters)}
         toolbar={
-          <button className="glass-button" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={openCreate}>
+          can('stock_requests.create') && <button className="glass-button" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={openCreate}>
             <Plus size={16} /> Create Request
           </button>
         }
         actions={(row) => (
           <>
             <ActionButton icon={Eye} label="View" onClick={() => openDetail(row)} />
-            {editableStatuses.includes(row.request_status) && <ActionButton icon={Edit} label="Edit" onClick={() => openEdit(row)} color="var(--accent-blue)" />}
-            {canCompleteOrCancel(row) && <ActionButton icon={CheckCircle} label="Complete" onClick={() => setConfirmAction({ type: 'complete', row })} color="var(--accent-green)" />}
-            {canCompleteOrCancel(row) && <ActionButton icon={XCircle} label="Cancel" onClick={() => setConfirmAction({ type: 'cancel', row })} color="var(--accent-red)" />}
+            {can('stock_requests.update') && editableStatuses.includes(row.request_status) && <ActionButton icon={Edit} label="Edit" onClick={() => openEdit(row)} color="var(--accent-blue)" />}
+            {can('stock_requests.accept') && canAccept(row) && <ActionButton icon={CheckCircle} label="Accept" onClick={() => setConfirmAction({ type: 'accept', row })} color="var(--accent-blue)" />}
+            {can('stock_requests.complete') && canComplete(row) && <ActionButton icon={CheckCircle} label="Complete" onClick={() => setConfirmAction({ type: 'complete', row })} color="var(--accent-green)" />}
+            {can('stock_requests.print') && canPrint(row) && <ActionButton icon={Printer} label="Print Order" onClick={() => openPrint(row)} color="var(--accent-orange)" />}
+            {can('stock_requests.cancel') && canCancel(row) && <ActionButton icon={XCircle} label="Cancel" onClick={() => setConfirmAction({ type: 'cancel', row })} color="var(--accent-red)" />}
           </>
         )}
       />
@@ -211,11 +261,24 @@ export default function StockRequestsTab() {
 
       <ConfirmModal
         open={!!confirmAction}
-        title={confirmAction?.type === 'complete' ? 'Complete Request' : 'Cancel Request'}
+        title={confirmAction?.type === 'complete' ? 'Complete Request' : confirmAction?.type === 'accept' ? 'Accept Request' : 'Cancel Request'}
         message={`Are you sure you want to ${confirmAction?.type} request ${confirmAction?.row?.request_number}?`}
         onConfirm={handleConfirmAction}
         onCancel={() => setConfirmAction(null)}
       />
+
+      <Modal open={!!printModal} title={`Print ${printModal?.request_number || ''}`} onClose={() => setPrintModal(null)} width="520px">
+        <FormField label="Printer Name">
+          <FormInput value={printerName} onChange={setPrinterName} placeholder="Leave empty for default printer" />
+        </FormField>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
+          QZ Tray will verify the local print service and use signed backend requests before printing.
+        </div>
+        {printStatus && <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>{printStatus}</div>}
+        <button className="glass-button" disabled={printing} onClick={handlePrint} style={{ width: '100%' }}>
+          <Printer size={16} /> {printing ? 'Printing...' : 'Print Order'}
+        </button>
+      </Modal>
     </>
   );
 }

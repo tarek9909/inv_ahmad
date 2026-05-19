@@ -26,5 +26,9 @@ module.exports = {
   jwt: {
     secret: process.env.JWT_SECRET || 'development_only_change_me',
     expiresIn: process.env.JWT_EXPIRES_IN || '1d'
+  },
+  qz: {
+    certificate: process.env.QZ_CERTIFICATE || '',
+    privateKey: process.env.QZ_PRIVATE_KEY || ''
   }
 };

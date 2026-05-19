@@ -4,6 +4,9 @@ import { createAdminApi } from './adminApi.js';
 import { createInventoryApi } from './inventoryApi.js';
 import { createAccountantApi } from './accountantApi.js';
 import { createReportsApi } from './reportsApi.js';
+import { createSettingsApi } from './settingsApi.js';
+import { createPrintApi } from './printApi.js';
+import { createDriverApi } from './driverApi.js';
 
 export * from './config.js';
 export * from './httpClient.js';
@@ -14,7 +17,10 @@ export const createApi = (client = http) => ({
   admin: createAdminApi(client),
   inventory: createInventoryApi(client),
   accountant: createAccountantApi(client),
-  reports: createReportsApi(client)
+  reports: createReportsApi(client),
+  settings: createSettingsApi(client),
+  print: createPrintApi(client),
+  driver: createDriverApi(client)
 });
 
 export const api = createApi(http);

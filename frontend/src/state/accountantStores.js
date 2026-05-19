@@ -10,8 +10,10 @@ export const createAccountantStores = ({ accountantApi = api.accountant } = {}) 
   stockRequests: {
     ...createResourceStore({ api: accountantApi.stockRequests }),
     loadOne: accountantApi.stockRequests.get,
+    accept: accountantApi.stockRequests.accept,
     complete: accountantApi.stockRequests.complete,
-    cancel: accountantApi.stockRequests.cancel
+    cancel: accountantApi.stockRequests.cancel,
+    print: accountantApi.stockRequests.print
   },
   payments: createResourceStore({ api: accountantApi.payments })
 });

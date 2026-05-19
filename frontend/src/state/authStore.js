@@ -82,6 +82,11 @@ export const createAuthStore = ({ authApi = api.auth } = {}) => {
     },
     hasRole(roleCode) {
       return store.getState().user?.role?.code === roleCode;
+    },
+    can(permission) {
+      const user = store.getState().user;
+      if (user?.role?.code === 'admin') return true;
+      return (user?.permissions || []).includes(permission);
     }
   };
 };

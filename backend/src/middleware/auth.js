@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const { User, Role } = require('../models');
+const { attachPermissions } = require('../services/permissionService');
 const HttpError = require('../utils/httpError');
 
 const authenticate = async (req, res, next) => {
@@ -15,7 +16,7 @@ const authenticate = async (req, res, next) => {
 
     if (!user || user.status !== 'active') throw new HttpError(401, 'User is not allowed to access the system');
 
-    req.user = user;
+    req.user = await attachPermissions(user);
     next();
   } catch (error) {
     next(error.statusCode ? error : new HttpError(401, 'Invalid or expired token'));

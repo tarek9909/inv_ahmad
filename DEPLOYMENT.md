@@ -75,14 +75,14 @@ If you do not use the Blueprint, configure services manually.
 Backend web service:
 
 - Root directory: `backend`
-- Build command: `npm ci`
+- Build command: `npm install`
 - Start command: `npm run migrate && npm start`
 - Health check path: `/health`
 
 Frontend static site:
 
 - Root directory: `frontend`
-- Build command: `npm ci && npm run build`
+- Build command: `npm install && npm run build`
 - Publish directory: `dist`
 - Rewrite rule: `/*` -> `/index.html`
 

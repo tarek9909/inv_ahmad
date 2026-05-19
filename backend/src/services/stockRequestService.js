@@ -1,4 +1,4 @@
-const { sequelize, StockRequest, StockRequestItem, Driver, Item } = require('../models');
+const { sequelize, StockRequest, StockRequestItem, Driver, Item, StockRequestPrint } = require('../models');
 const HttpError = require('../utils/httpError');
 const { generateNumber, toMoney } = require('../utils/numbers');
 const { changeStock } = require('./stockService');
@@ -47,6 +47,7 @@ const completeStockRequest = async (requestId, req) => sequelize.transaction(asy
   if (!request) throw new HttpError(404, 'Stock request not found');
   if (request.request_status === 'completed') throw new HttpError(400, 'Stock request is already completed');
   if (request.request_status === 'cancelled') throw new HttpError(400, 'Cancelled stock requests cannot be completed');
+  if (request.request_status !== 'approved') throw new HttpError(400, 'Stock request must be accepted before completion');
 
   for (const line of request.items) {
     const item = await Item.findByPk(line.item_id, { transaction, lock: transaction.LOCK.UPDATE });
@@ -74,6 +75,38 @@ const completeStockRequest = async (requestId, req) => sequelize.transaction(asy
   return StockRequest.findByPk(request.id, { include: includeStockRequest, transaction });
 });
 
+const acceptStockRequest = async (requestId, req) => sequelize.transaction(async (transaction) => {
+  const request = await StockRequest.findByPk(requestId, { include: includeStockRequest, transaction, lock: transaction.LOCK.UPDATE });
+  if (!request) throw new HttpError(404, 'Stock request not found');
+  if (!['draft', 'pending'].includes(request.request_status)) throw new HttpError(400, 'Only draft or pending requests can be accepted');
+
+  const oldData = request.toJSON();
+  await request.update({
+    request_status: 'approved',
+    approved_by: req.user.id,
+    approved_at: new Date()
+  }, { transaction });
+  await logAction({ req, action: 'accept', module: 'stock_requests', recordId: request.id, oldData, newData: request.toJSON(), transaction });
+  return StockRequest.findByPk(request.id, { include: includeStockRequest, transaction });
+});
+
+const recordStockRequestPrint = async (requestId, payload, req) => {
+  const request = await StockRequest.findByPk(requestId, { include: includeStockRequest });
+  if (!request) throw new HttpError(404, 'Stock request not found');
+  if (!['approved', 'completed'].includes(request.request_status)) throw new HttpError(400, 'Only accepted or completed requests can be printed');
+
+  const print = await StockRequestPrint.create({
+    stock_request_id: request.id,
+    printed_by: req.user.id,
+    printer_name: payload.printer_name || null,
+    qz_version: payload.qz_version || null,
+    status: payload.status === 'failed' ? 'failed' : 'success',
+    error_message: payload.error_message || null
+  });
+  await logAction({ req, action: print.status === 'success' ? 'print' : 'print_failed', module: 'stock_requests', recordId: request.id, newData: print.toJSON() });
+  return { request, print };
+};
+
 const cancelStockRequest = async (requestId, req) => sequelize.transaction(async (transaction) => {
   const request = await StockRequest.findByPk(requestId, { transaction });
   if (!request) throw new HttpError(404, 'Stock request not found');
@@ -85,4 +118,4 @@ const cancelStockRequest = async (requestId, req) => sequelize.transaction(async
   return request;
 });
 
-module.exports = { includeStockRequest, createStockRequest, completeStockRequest, cancelStockRequest };
+module.exports = { includeStockRequest, createStockRequest, acceptStockRequest, completeStockRequest, cancelStockRequest, recordStockRequestPrint };

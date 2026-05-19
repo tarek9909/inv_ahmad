@@ -5,9 +5,14 @@ import { LogIn, KeyRound, Mail, AlertCircle } from 'lucide-react';
 import { authStore } from '../state/index.js';
 import { useStore } from '../hooks/useStore.js';
 
-const defaultPathForRole = (roleCode) => {
-  if (roleCode === 'inventory') return '/dashboard/inventory';
-  if (roleCode === 'accountant') return '/dashboard/fleet';
+const defaultPathForUser = (user) => {
+  const permissions = user?.permissions || [];
+  const has = (permission) => user?.role?.code === 'admin' || permissions.includes(permission);
+  if (has('dashboard.view')) return '/dashboard';
+  if (has('inventory.view')) return '/dashboard/inventory';
+  if (has('fleet.view')) return '/dashboard/fleet';
+  if (has('driver_portal.view')) return '/dashboard/driver';
+  if (has('team.view')) return '/dashboard/team';
   return '/dashboard';
 };
 
@@ -21,7 +26,7 @@ export default function Login() {
     e.preventDefault();
     try {
       const result = await authStore.login({ email, password });
-      navigate(defaultPathForRole(result.data?.user?.role?.code));
+      navigate(defaultPathForUser(result.data?.user));
     } catch (err) {
       console.error('Login failed', err);
     }

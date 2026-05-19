@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci
+    buildCommand: npm install
     startCommand: npm run migrate && npm start
     healthCheckPath: /health
     autoDeploy: true
@@ -39,7 +39,7 @@ services:
     runtime: static
     plan: free
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
     autoDeploy: true
     envVars:

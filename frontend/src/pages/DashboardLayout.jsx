@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, Package, Truck, Users, Activity, FileText, BarChart3, UserCog } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, Truck, Users, Activity, FileText, BarChart3, UserCog, Settings, ClipboardList } from 'lucide-react';
 import { authStore } from '../state/index.js';
 import { useStore } from '../hooks/useStore.js';
 import { motion } from 'framer-motion';
@@ -11,16 +11,18 @@ export default function DashboardLayout() {
   const location = useLocation();
 
   const navItems = [
-    { label: 'Overview', path: '/dashboard', icon: LayoutDashboard, roles: ['admin'] },
-    { label: 'Inventory', path: '/dashboard/inventory', icon: Package, roles: ['admin', 'inventory'] },
-    { label: 'Fleet & Dispatch', path: '/dashboard/fleet', icon: Truck, roles: ['admin', 'accountant'] },
-    { label: 'Team', path: '/dashboard/team', icon: Users, roles: ['admin'] },
-    { label: 'Audit Logs', path: '/dashboard/audit', icon: Activity, roles: ['admin'] },
-    { label: 'Reports', path: '/dashboard/reports', icon: BarChart3, roles: ['admin'] },
+    { label: 'Overview', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+    { label: 'Inventory', path: '/dashboard/inventory', icon: Package, permission: 'inventory.view' },
+    { label: 'Fleet & Dispatch', path: '/dashboard/fleet', icon: Truck, permission: 'fleet.view' },
+    { label: 'Driver Portal', path: '/dashboard/driver', icon: ClipboardList, permission: 'driver_portal.view' },
+    { label: 'Team', path: '/dashboard/team', icon: Users, permission: 'team.view' },
+    { label: 'Configuration', path: '/dashboard/configuration', icon: Settings, permission: 'settings.manage' },
+    { label: 'Audit Logs', path: '/dashboard/audit', icon: Activity, permission: 'audit_logs.view' },
+    { label: 'Reports', path: '/dashboard/reports', icon: BarChart3, permission: 'reports.view' },
     { label: 'Profile', path: '/dashboard/profile', icon: UserCog }
   ];
 
-  const canAccess = (item, currentUser = user) => !item.roles || item.roles.includes(currentUser.role?.code);
+  const canAccess = (item, currentUser = user) => !item.permission || currentUser.role?.code === 'admin' || (currentUser.permissions || []).includes(item.permission);
   const defaultPathFor = (currentUser) => navItems.find((item) => canAccess(item, currentUser))?.path || '/';
 
   useEffect(() => {
@@ -116,7 +118,7 @@ export default function DashboardLayout() {
         <header className="glass-panel" style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ fontSize: '20px', fontWeight: '600' }}>{navItems.find(i => location.pathname === i.path || (i.path !== '/dashboard' && location.pathname.startsWith(i.path)))?.label || 'Dashboard'}</h1>
           <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            Welcome back, {user.full_name.split(' ')[0]} 👋
+            Welcome back, {user.full_name.split(' ')[0]}
           </div>
         </header>
 

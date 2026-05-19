@@ -9,6 +9,8 @@ import TeamPage from './pages/TeamPage';
 import AuditPage from './pages/AuditPage';
 import ReportsPage from './pages/ReportsPage';
 import ProfilePage from './pages/ProfilePage';
+import ConfigurationPage from './pages/ConfigurationPage';
+import DriverPortalPage from './pages/DriverPortalPage';
 import ToastContainer from './components/Toast';
 
 export default function App() {
@@ -25,6 +27,8 @@ export default function App() {
           <Route path="audit" element={<AuditPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="configuration" element={<ConfigurationPage />} />
+          <Route path="driver" element={<DriverPortalPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const { Op } = require('sequelize');
 const { User, Role } = require('../models');
+const { attachPermissions } = require('./permissionService');
 const HttpError = require('../utils/httpError');
 
 const login = async ({ email, password }) => {
@@ -15,12 +16,12 @@ const login = async ({ email, password }) => {
 
   await user.update({ last_login_at: new Date() });
   const token = jwt.sign({ id: user.id, role: user.role.code }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
-  const safeUser = await User.findByPk(user.id, { include: [{ model: Role, as: 'role' }] });
+  const safeUser = await attachPermissions(await User.findByPk(user.id, { include: [{ model: Role, as: 'role' }] }));
 
   return { token, user: safeUser };
 };
 
-const loadSafeUser = (id) => User.findByPk(id, { include: [{ model: Role, as: 'role' }] });
+const loadSafeUser = async (id) => attachPermissions(await User.findByPk(id, { include: [{ model: Role, as: 'role' }] }));
 
 const updateProfile = async (userId, payload) => {
   const user = await User.unscoped().findByPk(userId);

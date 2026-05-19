@@ -4,7 +4,7 @@ import DataTable, { ActionButton, StatusBadge } from '../../components/DataTable
 import Modal, { ConfirmModal } from '../../components/Modal.jsx';
 import FormField, { FormInput, FormSelect, FormTextarea, SubmitButton } from '../../components/FormField.jsx';
 import { toast } from '../../components/Toast.jsx';
-import { accountantStores, authStore } from '../../state/index.js';
+import { accountantStores, authStore, adminStores } from '../../state/index.js';
 import { useStore } from '../../hooks/useStore.js';
 import { USER_STATUSES } from '../../domain/index.js';
 
@@ -18,6 +18,7 @@ const columns = [
 export default function DriversTab() {
   const { rows, meta, loading, error } = useStore(accountantStores.drivers);
   const { user } = useStore(authStore);
+  const usersState = useStore(adminStores.users);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
@@ -26,18 +27,23 @@ export default function DriversTab() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [balanceModal, setBalanceModal] = useState(null);
 
-  useEffect(() => { accountantStores.drivers.load(); }, []);
+  useEffect(() => {
+    accountantStores.drivers.load();
+    if (user?.role?.code === 'admin' || (user?.permissions || []).includes('users.manage')) adminStores.users.load({ limit: 100 });
+  }, [user]);
+
+  const can = (permission) => user?.role?.code === 'admin' || (user?.permissions || []).includes(permission);
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', phone: '', address: '', id_number: '', vehicle_type: '', vehicle_plate_number: '', notes: '', status: 'active' });
+    setForm({ user_id: '', full_name: '', phone: '', address: '', id_number: '', vehicle_type: '', vehicle_plate_number: '', notes: '', status: 'active' });
     setErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (row) => {
     setEditing(row);
-    setForm({ full_name: row.full_name || '', phone: row.phone || '', address: row.address || '', id_number: row.id_number || '', vehicle_type: row.vehicle_type || '', vehicle_plate_number: row.vehicle_plate_number || '', notes: row.notes || '', status: row.status || 'active' });
+    setForm({ user_id: row.user_id || '', full_name: row.full_name || '', phone: row.phone || '', address: row.address || '', id_number: row.id_number || '', vehicle_type: row.vehicle_type || '', vehicle_plate_number: row.vehicle_plate_number || '', notes: row.notes || '', status: row.status || 'active' });
     setErrors({});
     setModalOpen(true);
   };
@@ -48,11 +54,12 @@ export default function DriversTab() {
 
     setSaving(true);
     try {
+      const payload = { ...form, user_id: form.user_id ? Number(form.user_id) : null };
       if (editing) {
-        await accountantStores.drivers.update(editing.id, form);
+        await accountantStores.drivers.update(editing.id, payload);
         toast.success('Driver updated');
       } else {
-        await accountantStores.drivers.create(form);
+        await accountantStores.drivers.create(payload);
         toast.success('Driver created');
       }
       setModalOpen(false);
@@ -104,16 +111,16 @@ export default function DriversTab() {
         error={error}
         onLoad={(filters) => accountantStores.drivers.load(filters)}
         toolbar={
-          <button className="glass-button" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={openCreate}>
+          can('drivers.create') && <button className="glass-button" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={openCreate}>
             <Plus size={16} /> Add Driver
           </button>
         }
         actions={(row) => (
           <>
-            <ActionButton icon={Wallet} label="Balance" onClick={() => openBalance(row)} color="var(--accent-green)" />
-            <ActionButton icon={Edit} label="Edit" onClick={() => openEdit(row)} />
-            <ActionButton icon={row.status === 'active' ? Archive : RotateCcw} label={row.status === 'active' ? 'Archive' : 'Restore'} onClick={() => toggleArchive(row)} color="var(--accent-purple)" />
-            {user?.role?.code === 'admin' && <ActionButton icon={Trash2} label="Delete Permanently" onClick={() => setDeleteTarget(row)} color="var(--accent-red)" />}
+            {can('drivers.view_balance') && <ActionButton icon={Wallet} label="Balance" onClick={() => openBalance(row)} color="var(--accent-green)" />}
+            {can('drivers.update') && <ActionButton icon={Edit} label="Edit" onClick={() => openEdit(row)} />}
+            {can('drivers.archive') && <ActionButton icon={row.status === 'active' ? Archive : RotateCcw} label={row.status === 'active' ? 'Archive' : 'Restore'} onClick={() => toggleArchive(row)} color="var(--accent-purple)" />}
+            {can('drivers.delete') && <ActionButton icon={Trash2} label="Delete Permanently" onClick={() => setDeleteTarget(row)} color="var(--accent-red)" />}
           </>
         )}
       />
@@ -122,6 +129,14 @@ export default function DriversTab() {
         <form onSubmit={handleSubmit}>
           <FormField label="Full Name" required error={errors.full_name}>
             <FormInput value={form.full_name} onChange={(v) => { setForm({ ...form, full_name: v }); setErrors({}); }} placeholder="Driver name" />
+          </FormField>
+          <FormField label="Linked Login Account">
+            <FormSelect
+              value={form.user_id}
+              onChange={(v) => setForm({ ...form, user_id: v })}
+              placeholder="No linked login"
+              options={(usersState.rows || []).map((account) => ({ value: account.id, label: `${account.full_name} (${account.email})` }))}
+            />
           </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <FormField label="Phone">
